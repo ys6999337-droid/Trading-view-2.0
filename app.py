@@ -4,21 +4,24 @@ import numpy as np
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 
-st.title("🚀 AI Trading App (Fixed Version)")
+st.title("🚀 AI Trading App (Stable Version)")
 
 symbol = st.text_input("Symbol", "BTC-USD")
-interval = st.selectbox("Timeframe", ["5m","15m","1h"])
+interval = st.selectbox("Timeframe", ["15m","1h","1d"])  # 5m हटाया
 
-# SAFE DATA LOAD
-try:
-    df = yf.download(symbol, period="7d", interval=interval)
-except:
-    st.error("Data load error")
-    st.stop()
+# SAFE DOWNLOAD FUNCTION
+def load_data():
+    try:
+        df = yf.download(symbol, period="30d", interval=interval)
+        return df
+    except:
+        return pd.DataFrame()
+
+df = load_data()
 
 # CHECK DATA
-if df.empty:
-    st.error("❌ No data मिला (change timeframe या symbol)")
+if df is None or df.empty:
+    st.error("❌ Data load nahi hua — timeframe change karo (1h try karo)")
     st.stop()
 
 # FEATURES
@@ -37,16 +40,16 @@ df["Target"] = (df["Close"].shift(-1) > df["Close"]).astype(int)
 
 df = df.dropna()
 
-# AGAIN CHECK
-if len(df) < 20:
-    st.error("❌ Data kam hai (change timeframe)")
+# FINAL CHECK
+if len(df) < 30:
+    st.error("❌ Data insufficient — timeframe 1h ya 1d use karo")
     st.stop()
 
-# MODEL
+# MODEL TRAIN
 X = df[["EMA","RSI","Return"]]
 y = df["Target"]
 
-model = RandomForestClassifier()
+model = RandomForestClassifier(n_estimators=50)
 model.fit(X, y)
 
 # PREDICTION
@@ -58,8 +61,12 @@ pred = model.predict(X_last)[0]
 signal = "🔥 BUY" if pred == 1 else "🔻 SELL"
 
 # DISPLAY
+st.subheader("📊 AI SIGNAL")
+
 st.write(f"Signal: {signal}")
 st.write(f"Price: {round(last['Close'],2)}")
+st.write(f"RSI: {round(last['RSI'],2)}")
 
 # CHART
+st.subheader("📈 Chart")
 st.line_chart(df["Close"])
