@@ -138,9 +138,40 @@ else:
 
         st.success("Trade Done")
 
-    # CHART
-    st.subheader("📊 Chart")
-    st.line_chart(df["Close"])
+    
+import streamlit as st
+
+st.title("📊 Pro Chart Analysis")
+
+symbol = st.text_input("Symbol", "BINANCE:BTCUSDT")
+
+# TradingView Widget
+html_code = f"""
+<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container">
+  <div id="tradingview_chart"></div>
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+  new TradingView.widget({{
+    "width": "100%",
+    "height": 600,
+    "symbol": "{symbol}",
+    "interval": "60",
+    "timezone": "Asia/Kolkata",
+    "theme": "dark",
+    "style": "1",
+    "locale": "en",
+    "toolbar_bg": "#f1f3f6",
+    "enable_publishing": false,
+    "allow_symbol_change": true,
+    "studies": ["RSI@tv-basicstudies","MACD@tv-basicstudies"],
+    "container_id": "tradingview_chart"
+  }});
+  </script>
+</div>
+"""
+
+st.components.v1.html(html_code, height=650)
 
     # HISTORY
     st.subheader("📜 My Trades")
