@@ -2,31 +2,32 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import time
 
-st.title("🚀 AI Trading App (No Rate Limit Fix)")
+st.title("🚀 AI Trading App (FINAL ULTRA FIX)")
 
 symbol = st.text_input("Symbol", "BTC-USD")
 interval = st.selectbox("Timeframe", ["1h","1d"])
 
-# ✅ CACHE (IMPORTANT FIX)
-@st.cache_data(ttl=300)  # 5 min cache
+@st.cache_data(ttl=300)
 def load_data(symbol, interval):
-    try:
-        df = yf.download(symbol, period="60d", interval=interval, progress=False)
-        return df
-    except:
-        return pd.DataFrame()
+    df = yf.download(symbol, period="60d", interval=interval, progress=False)
+    
+    # ✅ FLATTEN COLUMNS (MAIN FIX)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    
+    return df
 
-# LOAD DATA
 df = load_data(symbol, interval)
 
-# CHECK
 if df is None or df.empty:
-    st.error("❌ Data blocked by Yahoo (refresh after 1-2 min)")
+    st.error("❌ Data load failed")
     st.stop()
 
-# CALCULATIONS
+# SAFE CONVERT
+df["Close"] = pd.to_numeric(df["Close"], errors='coerce')
+
+# INDICATORS
 df["EMA"] = df["Close"].ewm(span=20).mean()
 
 delta = df["Close"].diff()
@@ -43,18 +44,24 @@ if len(df) < 20:
 
 last = df.iloc[-1]
 
+# ✅ FORCE SCALAR (CRITICAL FIX)
+close = float(last["Close"])
+ema = float(last["EMA"])
+rsi = float(last["RSI"])
+
 # SIGNAL
-if last["Close"] > last["EMA"] and last["RSI"] < 40:
+if close > ema and rsi < 40:
     signal = "🔥 BUY"
-elif last["Close"] < last["EMA"] and last["RSI"] > 60:
+elif close < ema and rsi > 60:
     signal = "🔻 SELL"
 else:
     signal = "⚠️ WAIT"
 
-# DISPLAY
+# OUTPUT
 st.subheader("📊 SIGNAL")
 st.write(f"Signal: {signal}")
-st.write(f"Price: {round(last['Close'],2)}")
+st.write(f"Price: {round(close,2)}")
+st.write(f"RSI: {round(rsi,2)}")
 
 # CHART
 st.line_chart(df["Close"])
