@@ -2,29 +2,25 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from sklearn.ensemble import RandomForestClassifier
 
-st.title("🚀 AI Trading App (Stable Version)")
+st.title("🚀 AI Trading App (Stable No Error Version)")
 
 symbol = st.text_input("Symbol", "BTC-USD")
-interval = st.selectbox("Timeframe", ["15m","1h","1d"])  # 5m हटाया
+interval = st.selectbox("Timeframe", ["1h","1d"])  # safe only
 
-# SAFE DOWNLOAD FUNCTION
-def load_data():
-    try:
-        df = yf.download(symbol, period="30d", interval=interval)
-        return df
-    except:
-        return pd.DataFrame()
-
-df = load_data()
-
-# CHECK DATA
-if df is None or df.empty:
-    st.error("❌ Data load nahi hua — timeframe change karo (1h try karo)")
+# DATA LOAD
+try:
+    df = yf.download(symbol, period="60d", interval=interval)
+except:
+    st.error("❌ Data load error")
     st.stop()
 
-# FEATURES
+# CHECK
+if df.empty:
+    st.error("❌ Data nahi mila — symbol ya timeframe change karo")
+    st.stop()
+
+# INDICATORS
 df["EMA"] = df["Close"].ewm(span=20).mean()
 
 delta = df["Close"].diff()
@@ -33,32 +29,21 @@ loss = -delta.clip(upper=0)
 rs = gain.rolling(14).mean() / loss.rolling(14).mean()
 df["RSI"] = 100 - (100/(1+rs))
 
-df["Return"] = df["Close"].pct_change()
-
-# TARGET
-df["Target"] = (df["Close"].shift(-1) > df["Close"]).astype(int)
-
 df = df.dropna()
 
-# FINAL CHECK
 if len(df) < 30:
-    st.error("❌ Data insufficient — timeframe 1h ya 1d use karo")
+    st.error("❌ Data insufficient")
     st.stop()
 
-# MODEL TRAIN
-X = df[["EMA","RSI","Return"]]
-y = df["Target"]
-
-model = RandomForestClassifier(n_estimators=50)
-model.fit(X, y)
-
-# PREDICTION
+# SIGNAL LOGIC (NO ML → NO ERROR)
 last = df.iloc[-1]
-X_last = [[last["EMA"], last["RSI"], last["Return"]]]
 
-pred = model.predict(X_last)[0]
-
-signal = "🔥 BUY" if pred == 1 else "🔻 SELL"
+if last["Close"] > last["EMA"] and last["RSI"] < 40:
+    signal = "🔥 BUY"
+elif last["Close"] < last["EMA"] and last["RSI"] > 60:
+    signal = "🔻 SELL"
+else:
+    signal = "⚠️ WAIT"
 
 # DISPLAY
 st.subheader("📊 AI SIGNAL")
