@@ -2,18 +2,28 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import time
 
-st.title("🚀 AI Trading App (FINAL FIXED)")
+st.title("🚀 AI Trading App (No Rate Limit Fix)")
 
 symbol = st.text_input("Symbol", "BTC-USD")
 interval = st.selectbox("Timeframe", ["1h","1d"])
 
-# LOAD DATA
-df = yf.download(symbol, period="60d", interval=interval)
+# ✅ CACHE (IMPORTANT FIX)
+@st.cache_data(ttl=300)  # 5 min cache
+def load_data(symbol, interval):
+    try:
+        df = yf.download(symbol, period="60d", interval=interval, progress=False)
+        return df
+    except:
+        return pd.DataFrame()
 
-# CHECK DATA
+# LOAD DATA
+df = load_data(symbol, interval)
+
+# CHECK
 if df is None or df.empty:
-    st.error("❌ Data load failed")
+    st.error("❌ Data blocked by Yahoo (refresh after 1-2 min)")
     st.stop()
 
 # CALCULATIONS
@@ -25,23 +35,15 @@ loss = -delta.clip(upper=0)
 rs = gain.rolling(14).mean() / loss.rolling(14).mean()
 df["RSI"] = 100 - (100/(1+rs))
 
-# CLEAN DATA
 df = df.dropna()
 
-# FINAL SAFETY CHECK
-if df.empty or len(df) < 10:
-    st.error("❌ Not enough valid data")
+if len(df) < 20:
+    st.error("❌ Not enough data")
     st.stop()
 
-# SAFE LAST ROW
 last = df.iloc[-1]
 
-# EXTRA SAFETY (NO CRASH)
-if pd.isna(last["Close"]) or pd.isna(last["EMA"]) or pd.isna(last["RSI"]):
-    st.error("❌ Indicator error — reload app")
-    st.stop()
-
-# SIGNAL LOGIC
+# SIGNAL
 if last["Close"] > last["EMA"] and last["RSI"] < 40:
     signal = "🔥 BUY"
 elif last["Close"] < last["EMA"] and last["RSI"] > 60:
@@ -49,12 +51,10 @@ elif last["Close"] < last["EMA"] and last["RSI"] > 60:
 else:
     signal = "⚠️ WAIT"
 
-# OUTPUT
+# DISPLAY
 st.subheader("📊 SIGNAL")
-
 st.write(f"Signal: {signal}")
 st.write(f"Price: {round(last['Close'],2)}")
-st.write(f"RSI: {round(last['RSI'],2)}")
 
 # CHART
 st.line_chart(df["Close"])
